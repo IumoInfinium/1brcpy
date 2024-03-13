@@ -1,5 +1,7 @@
 import polars as pl
+import time
 
+start_time = time.time()
 
 # Read data file
 df = pl.scan_csv(
@@ -30,3 +32,7 @@ for data in grouped.iter_rows():
         end=", ",
     )
 print("\b\b} ")
+
+print(
+    f"It took {time.time() - start_time:.12f} to measure them!"
+)

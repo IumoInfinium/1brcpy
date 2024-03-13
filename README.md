@@ -1,12 +1,19 @@
 # 1brc Challenge - Python
 
 > Note : Don't raat after checking the files ('>')/
+> Also, other people have used methods like red-bl
 
 ### Pre-check System Config
 
 - Windows 10 - i5 10300H
 - 8 GB, super-fast 2933 MHz RAM
 - Python 3.12
+
+
+## Final Results
+
+Using Pandas it can be done in ~253sec
+Using internal libraries it can be done in ~360sec
 
 ### Naive Solution
 
@@ -39,7 +46,7 @@ From all the dataframe chunks, we get a list a maps. Combine them together creat
 
 The single map is the result of all the lines processes. Now just need to output it.
 
-- Runtime : ~ 253 sec
+- Runtime : ~ 205 sec
 - Check the implementation in [`calc_avg_df.py`](./calc_avg_df.py)
 
 ### Parallelism
@@ -70,5 +77,3 @@ Now just iterate over all resultant dict and update them in a single map like la
 
     - `-f` is the input file name
     - `-t` is the number of times is test has to be done (limited 5 for now)  
-
-

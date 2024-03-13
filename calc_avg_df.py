@@ -5,6 +5,7 @@ import pandas as pd
 import os
 import concurrent.futures
 import multiprocessing
+import io
 
 def calculate_average_dataframe(
     file_name: str = 'measurements.txt',
@@ -110,16 +111,16 @@ def calculate_average_dataframe_2(
     Function to calculate values for each station from the provided file using the pandas dataframe
     '''
 
-    chunksize = 20_000_000
+    chunksize = 50_000_000
     chunk: pd.DataFrame = None
 
     station_map = {}
-
     future_to_chunks = {}
+
     def print_result():
-        print('{', end='')    
         all_stations = sorted(station_map.items())
         
+        print('{', end='')    
         for station, station_info in all_stations:
             print(
                 f"{station};{station_info[0]};{station_info[1]};{station_info[2]/station_info[3]:.1f}", end=", "
@@ -128,27 +129,33 @@ def calculate_average_dataframe_2(
         print("\b\b} ")
 
         
-    with concurrent.futures.ThreadPoolExecutor(max_workers= 50) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers= os.cpu_count()) as executor:
+        # st = time.time()
+        # cnt = 1
         for chunk in pd.read_csv(file_name, sep=separator, encoding='utf-8', chunksize= chunksize, names = ['station', 'temp']):
+            # pass
             future_to_chunks[executor.submit(_process_df, chunk)] = chunksize
-            continue
+            # break
+            # print(time.time() - st, cnt)
+            # cnt += 1
+    
+        for future in concurrent.futures.as_completed(future_to_chunks):
+                chunk_result = future.result()
         
-    for future in concurrent.futures.as_completed(future_to_chunks):
-            chunk_result = future.result()
-       
-            for k,v in chunk_result.items():
-                if k not in station_map:
-                    station_map[k] = [v['min_value'], v['max_value'], v['sum_value'], v['count']]
-                else:
-                    station_map[k][0] =  min(station_map[k][0], v['min_value'])
-                    station_map[k][1] =  min(station_map[k][1], v['max_value'])
-                    station_map[k][2] += v['sum_value']
-                    station_map[k][3] += v['count']
+                for k,v in chunk_result.items():
+                    if k not in station_map:
+                        station_map[k] = [v['min_value'], v['max_value'], v['sum_value'], v['count']]
+                    else:
+                        station_map[k][0] =  min(station_map[k][0], v['min_value'])
+                        station_map[k][1] =  min(station_map[k][1], v['max_value'])
+                        station_map[k][2] += v['sum_value']
+                        station_map[k][3] += v['count']
 
 
     # chunks = get_chunks(file_name, separator, chunksize)
     # process_chunks(chunks)
     print_result()
+
 
 if __name__ == "__main__":
 
@@ -168,7 +175,7 @@ if __name__ == "__main__":
         '--separator',
         type = str,
         dest = "separator",
-        default= "l",
+        default= ";",
         help = "Split the files based on the separator"
     )
 
