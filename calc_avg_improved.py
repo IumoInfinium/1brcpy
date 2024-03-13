@@ -3,129 +3,113 @@ Calculates the min, mean, max values for the stations in the measurements file  
 '''
 import argparse
 import time
-import concurrent.futures
+import multiprocessing
 import io
 import os
+
+def _process_file_chunk(file_name, start, end) -> dict:
+    '''
+    Process the measurement file from start and end chunk positions
+    Based in parallet
+    '''
+    mp = {}
+
+    with open(file_name, 'r') as f:
+        f.seek(start)
+        for line in f:
+            start += len(line)
+
+            if start > end:
+                break
+            
+            station, temp = line.strip().split(';')
+            temp = float(temp)
+
+            if station not in mp:
+                mp[station] = [temp, temp, temp, 1]
+            else:
+                mp[station][0] =  min(mp[station][0], temp)
+                mp[station][1] =  min(mp[station][1], temp)
+                mp[station][2] += temp
+                mp[station][3] += 1
+    return mp
+
+
+def get_chunks(file_name):
+        cpu_count = os.cpu_count()
+        file_size = os.path.getsize(file_name)
+        chunk_size = file_size // cpu_count
+        print(f"** File size  : {file_size}")
+        print(f"** Chunk size : {chunk_size}")
+
+        chunk_boundaries = []
+
+        with open(file_name, 'r+b') as f:
+
+            def is_new_line(pos):
+                if pos == 0:
+                    return True
+                else:
+                    f.seek(pos-1)
+                    return f.read(1) == b'\n'
+            
+            def next_line(pos):
+                f.seek(pos)
+                f.readline()
+                return f.tell()
+            
+            chunk_start = 0
+
+            while chunk_start < file_size:
+                chunk_end = min(chunk_start + chunk_size, file_size)
+
+                while not is_new_line(chunk_end):
+                    chunk_end -= 1
+                
+                if chunk_start == chunk_end:
+                    chunk_end = next_line(chunk_end)
+                
+                print(f"~ Chunk start: {chunk_start}")
+                print(f"~ Chunk end: {chunk_end}")
+                chunk_boundaries.append((file_name, chunk_start, chunk_end))
+                
+                chunk_start = chunk_end
+
+        return (cpu_count, chunk_boundaries)
 
 def calculate_average(records: int, file_name: str = 'measurements.txt', separator: str = ';') -> None:
     '''
     Function to calculate values for each station from the provided file
     '''
-    station_map = {}
-    chunk_count = 0
-    line_count = 0
-    chunk_size = 10_000
-    max_workers = 2
-
-    def process_chunk(chunk: list):
-        '''
-        Process a chunk for measurements of line and add them in the map 
-        '''
-        mp = {}
-        for line in chunk:
-            station, temp = line.strip().split(';')
-            temp = float(temp)
-            if mp.get(station, None) == None:
-                mp[station] = [temp, temp, temp, 1]
-            else:
-                mp[station][0] = min(mp[station][0], temp)
-                mp[station][1] = max(mp[station][1], temp)
-                mp[station][2] = mp[station][2] + temp
-                mp[station][3] += 1
-        print('Doe')
-        return mp
     
-    with concurrent.futures.ThreadPoolExecutor(max_workers= max_workers) as executor:
+    def process_file(cpu_count: int, chunks: list) -> None:
+        station_map = {}
+        with multiprocessing.Pool(cpu_count) as p:
+            chunk_results = p.starmap(_process_file_chunk, chunks)
 
-        future_to_process = {}
+            for chunk_result in chunk_results:
+                for k,v in chunk_result.items():
+                    if k not in station_map:
+                        station_map[k] = v
+                    else:
+                        station_map[k][0] =  min(station_map[k][0], v[0])
+                        station_map[k][1] =  min(station_map[k][1], v[1])
+                        station_map[k][2] += v[2]
+                        station_map[k][3] += v[3]
 
-        with open(file_name, 'rb') as f:
-            # start_pos = 0
-            # end_pos = os.stat(file_name).st_size
-            # print(start_pos, end_pos)
-            curr_context = []
-            curr_line = ""
-            c = f.read()
-            for i in range(10):
-                print(c)
-                c = f.read()
-
-            f.close()
-            # while start_pos <= end_pos:
-            #     c = f.read(1)
-            #     print(str(c))
-            #     while str(c) != '\n':
-            #         print(str(c))
-            #         curr_line += str(c)
-            #         c = f.read()
-                
-            #     if c == '\n':
-            #         print(f"~ {line_count }")
-            #         line_count += 1
-            #         curr_context.append(curr_line)
-            #         curr_line = ""
-
-            #     if len(curr_context) == chunk_size:
-            #         future_to_process[executor.submit(process_chunk, curr_context)] = chunk_count
-            #         curr_context = []
-            #         curr_line = ""
-
-            #     start_pos = f.tell()
-
-
-        # with open(file_name, 'r', encoding='utf-8') as measurement_file:
-            
-            # curr_context = []
-            
-            # while True:
-            #     line_char = measurement_file.read(1)
-            #     print(f"~ {line_count }")
-            #     if line_char == '':
-            #         break
-            #     while len(curr_context) < chunk_size and measurement_file.read(1) != '':
-            #         curr_context.append(measurement_file.readline())
-            #         line_count += 1
-
-            #     if len(curr_context) == chunk_size:
-            #         # future_to_process[executor.submit(process_chunk, curr_context)] = chunk_count
-            #         print(f'Chunk = {chunk_count}')
-            #         chunk_count += 1
-            #         curr_context.clear()
+        print('{', end='')    
+        all_stations = sorted(station_map.items())
         
-                
+        for station, station_info in all_stations:
+            print(
+                f"{station};{station_info[0]};{station_info[1]};{station_info[2]/station_info[3]:.1f}", end=", "
+            )
 
-        # for future in concurrent.futures.as_completed(future_to_process):
-        #     chunk_number = future_to_process[future]
-        #     try:
-        #         mapped_chunk = future.result()
+        print("\b\b} ")
 
-        #         for k,v in mapped_chunk:
-        #             if station_map.get(k, None) == None:
-        #                 station_map[k] = v
-        #             else:
-        #                 station_map[k][0] = min(station_map[k][0], v[0])
-        #                 station_map[k][1] = max(station_map[k][1], v[1])
-        #                 station_map[k][2] += v[2]
-        #                 station_map[k][3] += v[3]
 
-                
-        #     except Exception as exc:
-        #         print(f"O_O/ Generated an exception {exc} in chunk number {chunk_number}")
-        #     else:
-        #         print(
-        #             f"~ Updated {len(mapped_chunk)}"
-        #         )
-
-    
-    print('{', end='')    
-    all_stations = sorted(station_map.items())
-    
-    for station, station_info in all_stations:
-        print(
-            f"{station};{station_info[0]};{station_info[1]};{station_info[2]/station_info[3]:.1f}", end=", "
-        )
-
-    print("\b\b} ")
+    cpu_count, *chunks = get_chunks(file_name)
+    process_file(cpu_count, chunks[0])    
 
 def args_parse_records(records: int ) -> int:
     '''
@@ -204,7 +188,7 @@ if __name__ == "__main__":
 
         dataset.append(time.time() - start_time)
         print(
-            f"It took {dataset[-1]:.12f} to measure them!"
+            f"\nIt took {dataset[-1]:.12f} to measure them!"
         )
     
     if test_times < 2 :

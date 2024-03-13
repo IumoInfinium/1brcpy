@@ -2,6 +2,9 @@ import argparse
 import time
 import pandas as pd
 
+import os
+import concurrent.futures
+import multiprocessing
 
 def calculate_average_dataframe(
     file_name: str = 'measurements.txt',
@@ -75,6 +78,78 @@ def calculate_average_dataframe(
     print('}')
 
 
+def _process_df(df: pd.DataFrame, *args, **kwargs) -> dict:
+    '''
+    Process the dataframe and return a dict of unique objects
+    '''
+    new_df = df.groupby(
+        'station'
+    ).agg(
+        min_value = ('temp', 'min'),
+        max_value = ('temp', 'max'),
+        sum_value = ('temp', 'sum'),
+        count = ('station', 'count'),
+    )
+    return new_df.to_dict('index')
+
+def get_chunks(file_name, separator, chunksize):
+    result = []
+
+    for chunk in pd.read_csv(file_name, sep=separator, encoding='utf-8', chunksize= chunksize, names = ['station', 'temp']):
+        result.append(chunk)
+    
+    print(len(result), type(result))
+    map(print(type) , result)
+    return result
+
+def calculate_average_dataframe_2(
+    file_name: str = 'measurements.txt',
+    separator: str = ';'
+) -> None:
+    '''
+    Function to calculate values for each station from the provided file using the pandas dataframe
+    '''
+
+    chunksize = 20_000_000
+    chunk: pd.DataFrame = None
+
+    station_map = {}
+
+    future_to_chunks = {}
+    def print_result():
+        print('{', end='')    
+        all_stations = sorted(station_map.items())
+        
+        for station, station_info in all_stations:
+            print(
+                f"{station};{station_info[0]};{station_info[1]};{station_info[2]/station_info[3]:.1f}", end=", "
+            )
+
+        print("\b\b} ")
+
+        
+    with concurrent.futures.ThreadPoolExecutor(max_workers= 50) as executor:
+        for chunk in pd.read_csv(file_name, sep=separator, encoding='utf-8', chunksize= chunksize, names = ['station', 'temp']):
+            future_to_chunks[executor.submit(_process_df, chunk)] = chunksize
+            continue
+        
+    for future in concurrent.futures.as_completed(future_to_chunks):
+            chunk_result = future.result()
+       
+            for k,v in chunk_result.items():
+                if k not in station_map:
+                    station_map[k] = [v['min_value'], v['max_value'], v['sum_value'], v['count']]
+                else:
+                    station_map[k][0] =  min(station_map[k][0], v['min_value'])
+                    station_map[k][1] =  min(station_map[k][1], v['max_value'])
+                    station_map[k][2] += v['sum_value']
+                    station_map[k][3] += v['count']
+
+
+    # chunks = get_chunks(file_name, separator, chunksize)
+    # process_chunks(chunks)
+    print_result()
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Calculate average(min, mean, max) for the measurement's file")
@@ -121,7 +196,7 @@ if __name__ == "__main__":
 
     for testcase in range(test_times):
         start_time = time.time()
-        calculate_average_dataframe(
+        calculate_average_dataframe_2(
             file_name = parsed_args.file_name,
             separator = parsed_args.separator,
         )
