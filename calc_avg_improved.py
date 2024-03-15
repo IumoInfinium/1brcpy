@@ -36,44 +36,44 @@ def _process_file_chunk(file_name, start, end) -> dict:
 
 
 def get_chunks(file_name):
-        cpu_count = os.cpu_count()
-        file_size = os.path.getsize(file_name)
-        chunk_size = file_size // cpu_count
-        print(f"** File size  : {file_size}")
-        print(f"** Chunk size : {chunk_size}")
+    cpu_count = os.cpu_count()
+    file_size = os.path.getsize(file_name)
+    chunk_size = file_size // cpu_count
+    print(f"** File size  : {file_size}")
+    print(f"** Chunk size : {chunk_size}")
 
-        chunk_boundaries = []
+    chunk_boundaries = []
 
-        with open(file_name, 'r+b') as f:
+    with open(file_name, 'r+b') as f:
 
-            def is_new_line(pos):
-                if pos == 0:
-                    return True
-                else:
-                    f.seek(pos-1)
-                    return f.read(1) == b'\n'
+        def is_new_line(pos):
+            if pos == 0:
+                return True
+            else:
+                f.seek(pos-1)
+                return f.read(1) == b'\n'
+        
+        def next_line(pos):
+            f.seek(pos)
+            f.readline()
+            return f.tell()
+        
+        chunk_start = 0
+
+        while chunk_start < file_size:
+            chunk_end = min(chunk_start + chunk_size, file_size)
+
+            while not is_new_line(chunk_end):
+                chunk_end -= 1
             
-            def next_line(pos):
-                f.seek(pos)
-                f.readline()
-                return f.tell()
+            if chunk_start == chunk_end:
+                chunk_end = next_line(chunk_end)
             
-            chunk_start = 0
-
-            while chunk_start < file_size:
-                chunk_end = min(chunk_start + chunk_size, file_size)
-
-                while not is_new_line(chunk_end):
-                    chunk_end -= 1
-                
-                if chunk_start == chunk_end:
-                    chunk_end = next_line(chunk_end)
-                
-                print(f"~ Chunk start: {chunk_start}")
-                print(f"~ Chunk end: {chunk_end}")
-                chunk_boundaries.append((file_name, chunk_start, chunk_end))
-                
-                chunk_start = chunk_end
+            print(f"~ Chunk start: {chunk_start}")
+            print(f"~ Chunk end: {chunk_end}")
+            chunk_boundaries.append((file_name, chunk_start, chunk_end))
+            
+            chunk_start = chunk_end
 
         return (cpu_count, chunk_boundaries)
 

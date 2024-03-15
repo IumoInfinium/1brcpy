@@ -12,11 +12,10 @@
 
 ## Final Results
 
-Using Pandas it can be done in ~253sec
-Using internal libraries it can be done in ~360sec
+Best Result :  ~ 205 sec
+Avg Results :  ~ 300 sec
 
 ### Naive Solution
-
 
 Logic : Map(using `dict`) every Station with 4 values -> min, max, sum and count
 
@@ -59,6 +58,23 @@ Now just iterate over all resultant dict and update them in a single map like la
 
 - Runtime : ~ 361.6 sec
 - Check the implementation in [`calc_avg_improvement.py`](./calc_avg_improvement.py)
+
+### MMAP
+
+#### Raw Version
+
+Using the memory mapped files, avoiding the memory overheads, raw version use maps the whole file in the virtually mapped memory, and does normal Map/Reduce algorithm to calculate answer.
+
+- Runtime : ~ 1286.2 sec
+- Check the implementation in [`calc_avg_low.py`](./calc_avg_low.py)
+
+
+#### MMAP and parallelism
+
+Instead for memory mapping whole file and computing 1 billions lines of text, first find chunk boundaries (N chunks, number of physical processors), then for each nmap the file and find move the file pointer to that memory location and calculate the chunk's answer. Do for N chunks, and them compute the combined res.
+
+- Runtime: ~ 325.42 sec.
+- Check the implmentation in [`mmap_multiprocessing.py`](./mmap_multiprocessing.py)
 
 ## side notes
 
