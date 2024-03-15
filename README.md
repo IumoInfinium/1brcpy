@@ -1,5 +1,16 @@
 # 1brc Challenge - Python
 
+## Intro
+
+This is my version of 1BRC - 1 billion row challenge, where you need to process the 1 billion lines of text with the format ***station;temperature***
+And calculate the minimum, maximum and average temperature of each and every station.
+
+Accomplish this with only internal libraries. There is hardware limitation as well(check blog post to know)
+
+Blog Post : [Morling's blog on 1BRC](https://www.morling.dev/blog/one-billion-row-challenge/)
+
+Github Repository - [Morling's 1BRC](https://github.com/gunnarmorling/1brc/)
+
 > Note : Don't raat after checking the files ('>')/
 > Also, other people have used methods like red-bl
 
@@ -9,11 +20,26 @@
 - 8 GB, super-fast 2933 MHz RAM
 - Python 3.12
 
+## Problems
+
+- I/O read limitation 
+- Python's GIL, parallelism is slow because of this! (Ahh.. pain)
 
 ## Final Results
 
+#### With polars as a external module
+
+From : [calc_avg_df.py](#third-try)
+
 Best Result :  ~ 205 sec
+
+#### without any external module
+
 Avg Results :  ~ 300 sec
+
+> Ran the code on 8-core linux machine without any changes, it's now < `191 sec`.
+
+> Btw, running this code using PyPy3, may even execute it in `~ 100 sec`
 
 ### Naive Solution
 
@@ -27,15 +53,17 @@ Now just iterate through the dict structure and print the stuff and calculate th
 
 ### Trying with Pandas
 
-#### First try
+#### first try
 
 Failed. Loading the entire 1,000,000,000 records of text in the memory obviously fails...
 
-#### Second try
+#### second try
 
 chunking the dataframe into 10 million rows and creating a two dataframes, `main` and `sub` datframe on those chunks and grouping them, and updating the **main** dataframe.
 
-Runtime : ~ 357 sec.
+- Runtime : ~ 357 sec.
+- Function name: `calculate_avg_dataframe`
+- Check the implementation in [`calc_avg_df.py`](./calc_avg_df.py)
 
 #### third try
 
@@ -43,10 +71,11 @@ this approach is same as the second approach but instead of processing after eve
 
 From all the dataframe chunks, we get a list a maps. Combine them together creating a single map.
 
-The single map is the result of all the lines processes. Now just need to output it.
+A single map is the result of all the lines processes. Now just need to output it.
 
 - Runtime : ~ 205 sec
-- Check the implementation in [`calc_avg_df.py`](./calc_avg_df.py)
+- Function name: `calculate_avg_dataframe_2`
+- Check the implementation in [`calc_avg_df.py `](./calc_avg_df.py)
 
 ### Parallelism
 
@@ -61,7 +90,7 @@ Now just iterate over all resultant dict and update them in a single map like la
 
 ### MMAP
 
-#### Raw Version
+#### raw version
 
 Using the memory mapped files, avoiding the memory overheads, raw version use maps the whole file in the virtually mapped memory, and does normal Map/Reduce algorithm to calculate answer.
 
@@ -69,7 +98,7 @@ Using the memory mapped files, avoiding the memory overheads, raw version use ma
 - Check the implementation in [`calc_avg_low.py`](./calc_avg_low.py)
 
 
-#### MMAP and parallelism
+#### mmap and parallelism
 
 Instead for memory mapping whole file and computing 1 billions lines of text, first find chunk boundaries (N chunks, number of physical processors), then for each nmap the file and find move the file pointer to that memory location and calculate the chunk's answer. Do for N chunks, and them compute the combined res.
 
@@ -87,9 +116,18 @@ Instead for memory mapping whole file and computing 1 billions lines of text, fi
     - `-o` is the output file name
     - `-r` is the number of records in the file to be created  
 
-- Calculation of measurement file can be done using 
+- Calculation of measurement file can be done using
 
     ```python calc_avg_df.py -f m_1_000_000.txt -t 2```
 
     - `-f` is the input file name
     - `-t` is the number of times is test has to be done (limited 5 for now)  
+
+### learnings
+
+(what i learned)
+
+- multiprocessing and multi-threading
+- polars (dang it's fast)
+- mmap, anonymous memory
+- Python's GIL is a pain
