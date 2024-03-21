@@ -6,43 +6,52 @@ import polars as pl
 # import io
 import argparse
 
-# FILE_NAME = 'vals.txt'
-# FILE_NAME = 'm_1_000_000.txt'
-# FILE_NAME = 'm_100_000_000.txt'
 # FILE_NAME = 'm_1_000_000_000.txt'
 READ_BUFFER = 2048*2048
 
+def consumer_old(buffer: bytes) -> dict:
+    '''
+    # Old version of consumer with manual file line reads
+    - Read the correct buffer line-by-line, decoding it and processing and creating a sub-result 
+    '''
+    mp = {}
+    line_bytes = []
+    for val in buffer:
+        if val != 10:
+            line_bytes.append(val)
+            continue
+        
+        # decode the bytes till now and remove space and EOL's
+        line = str(bytes(line_bytes).decode('utf-8')).strip()
+
+        if line == '' :
+            line_bytes = []
+            continue
+        
+        # spliting the line and get the station and temp
+        station, temp = line.split(';')
+        temp = float(temp)
+
+        # update the sub result
+        if mp.get(station, None) == None:
+            mp[station] = [temp, temp, temp, 1]
+        else:
+            mp[station][0] = min(mp[station][0], temp)
+            mp[station][1] = max(mp[station][1], temp)
+            mp[station][2] += temp
+            mp[station][3] += 1
+
+        # removes the previous line, making space for new input
+        line_bytes = []
+    # return a dict with {'station' : [], 'station': []}
+    return mp
+
 def consumer(buffer: bytes)->dict:
-    # mp = {}
-    # line_bytes = []
-    # for val in buffer:
-    #     if val != 10:
-    #         line_bytes.append(val)
-    #         continue
-
-    #     line = str(bytes(line_bytes).decode('utf-8')).strip()
-
-    #     if line == '' :
-    #         line_bytes = []
-    #         continue
-    #     # print(line)
-    #     station, temp = line.split(';')
-    #     temp = float(temp)
-
-    #     if mp.get(station, None) == None:
-    #         mp[station] = [temp, temp, temp, 1]
-    #     else:
-    #         mp[station][0] = min(mp[station][0], temp)
-    #         mp[station][1] = max(mp[station][1], temp)
-    #         mp[station][2] += temp
-    #         mp[station][3] += 1
-
-    #     # removes the previous line, making space for new input
-    #     line_bytes = []
-    # return mp
-
+    '''
+    Use polars to read the data with new column names and create the min, max, sum and count columns when done with groupby
+    '''
     # -------------------------
-
+    # # Pandas Version instead for Polars
     # df = pd.read_csv(io.StringIO(buffer.decode('utf-8')), encoding='utf-8', sep=';', names=['station', 'temp'])
 
     # df = df.groupby('station').aggregate(
@@ -54,18 +63,23 @@ def consumer(buffer: bytes)->dict:
     # return df.to_dict('index')
     
     # ---------------
+    # read the data into a small dataframe
     df = pl.read_csv(buffer, separator=';', new_columns=['station', 'temp'])
 
-    df = df.groupby('station').agg(
+    # create groups using station and calculate values
+    df = df.group_by('station').agg(
         pl.min("temp").alias("min_value"),
         pl.max("temp").alias("max_value"),
         pl.sum("temp").alias("sum_value"),
         pl.count("temp").alias("count"),
     )
-    # return 's'
+    # return the results as dict -> {{}, {}, {}}
     return df.to_dicts()
 
 def print_result(results: list):
+    '''
+    Print the results, so you can see the output atleast
+    '''
     print('{')
 
     for res in results:
@@ -79,7 +93,7 @@ def run(FILE_NAME):
     
     f = open(FILE_NAME, 'rb')
 
-    op = []
+    tasks = []
 
     last_buffer=b''
     with concurrent.futures.ProcessPoolExecutor(os.cpu_count()) as executor:
@@ -101,15 +115,17 @@ def run(FILE_NAME):
 
             data = last_buffer + buff[:end]
             last_buffer = buff[end:]
-            op.append(executor.submit(consumer, data))
+            tasks.append(executor.submit(consumer, data))
             f.flush()
 
         f.close()
         station_mp = {}
 
         # for i in range(len(tasks)):
-        for f in concurrent.futures.as_completed(op):
+        for f in concurrent.futures.as_completed(tasks):
             res = f.result()
+
+            # # normal version
             # for k,v in res.items():
             #     if station_mp.get(k, None) == None:
             #         station_mp[k] = v
@@ -120,6 +136,7 @@ def run(FILE_NAME):
             #         station_mp[k][3] += 1
 
             # ------
+            # # pandas version 
             # for k,v in res.items():
             #     if station_mp.get(k, None) == None:
             #         station_mp[k] = [v['min_value'], v['max_value'], v['sum_value'], v['count']]

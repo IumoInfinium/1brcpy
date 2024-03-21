@@ -27,6 +27,11 @@ Github Repository - [Morling's 1BRC](https://github.com/gunnarmorling/1brc/)
 
 ## Final Results
 
+
+### UPDATE (21/03/2024)
+
+Using `buffering + multiprocessing + polars`, to get the result under a minute, to be exact ***43 sec***!(GIL still exists though)
+
 #### With polars as a external module
 
 From : [calc_avg_df.py](#third-try)
@@ -104,6 +109,14 @@ Instead for memory mapping whole file and computing 1 billions lines of text, fi
 
 - Runtime: ~ 325.42 sec.
 - Check the implmentation in [`mmap_multiprocessing.py`](./mmap_multiprocessing.py)
+
+
+### Buffering
+
+The idea is to still use the map approach but file read is done in batches of `4MB`(reducing the memory and cpu overhead a time) and those batches are multiprocessed(python's `ProcessPoolExecutor`) and each of them return a sub-result and later those are aggregated to get the final answer.
+
+- Runtime: ~ 43 sec.
+- Check the implmentation in [`my.py`](./my.py)
 
 ## side notes
 
