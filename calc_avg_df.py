@@ -143,7 +143,8 @@ def calculate_average_dataframe_2(
                 chunk_result = future.result()
         
                 for k,v in chunk_result.items():
-                    if k not in station_map:
+                    # if k not in station_map:
+                    if station_map.get(k,None) == None:
                         station_map[k] = [v['min_value'], v['max_value'], v['sum_value'], v['count']]
                     else:
                         station_map[k][0] =  min(station_map[k][0], v['min_value'])

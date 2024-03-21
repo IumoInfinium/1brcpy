@@ -6,7 +6,7 @@ start_time = time.time()
 # Read data file
 df = pl.scan_csv(
     # "measurements.txt",
-    "m_1_000_000_000.txt",
+    "m_1_000_000.txt",
     separator=";",
     has_header=False,
     with_column_names=lambda cols: ["station_name", "measurement"],

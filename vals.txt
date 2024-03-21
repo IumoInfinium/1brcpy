@@ -1,0 +1,15 @@
+Tijuana;22.0
+Valletta;23.1
+Harbin;-6.2
+Port Moresby;26.4
+Boise;22.2
+Andorra la Vella;30.3
+Ndola;26.9
+Birao;36.1
+Amsterdam;26.7
+Atlanta;12.2
+Douala;46.6
+Adelaide;35.6
+Thiès;47.6
+Thessaloniki;0.7
+Helsinki;8.8
